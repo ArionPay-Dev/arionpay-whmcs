@@ -11,7 +11,8 @@ require_once __DIR__ . '/../../../includes/gatewayfunctions.php';
 require_once __DIR__ . '/../../../includes/invoicefunctions.php';
 
 // 1. Detect Module Name
-$gatewayModuleName = 'ArionPay';
+// ✅ Normalizing to lowercase to match the module filename arionpay.php
+$gatewayModuleName = 'arionpay';
 
 // 2. Fetch Gateway Configuration
 $gatewayParams = getGatewayVariables($gatewayModuleName);
@@ -31,9 +32,9 @@ $apiKey = isset($headers['x-api-key']) ? $headers['x-api-key'] : '';
 
 if (!$signature || !$apiKey) {
     // Log for debugging
-    logTransaction($gatewayParams['name'], $rawBody, 'Missing Signature');
+    logTransaction($gatewayParams['name'], $rawBody, 'Missing Signature or API Key');
     http_response_code(401);
-    die('Missing Signature');
+    die('Missing Signature or API Key');
 }
 
 // Calculate expected signature using the Secret from WHMCS Config
@@ -47,10 +48,10 @@ if (!hash_equals($expectedSignature, $signature)) {
 
 // 5. Decode JSON
 $data = json_decode($rawBody, true);
-$invoiceId = $data['orderId'];      // WHMCS Invoice ID passed during creation
-$transactionId = $data['_id'];      // Arionpay Invoice ID
-$amountPaid = $data['amountFiat'];  // Amount paid in Fiat
-$status = $data['status'];          // 'paid', 'confirmed', 'paid_partial'
+$invoiceId = $data['orderId'] ?? '';     // WHMCS Invoice ID passed during creation
+$transactionId = $data['_id'] ?? $data['id'] ?? ''; // Arionpay Invoice ID with fallback
+$amountPaid = $data['amountFiat'] ?? 0;  // Amount paid in Fiat
+$status = $data['status'] ?? '';         // 'paid', 'confirmed', 'paid_partial'
 
 // 6. Validate Invoice ID
 $invoiceId = checkCbInvoiceID($invoiceId, $gatewayParams['name']);
@@ -59,18 +60,20 @@ $invoiceId = checkCbInvoiceID($invoiceId, $gatewayParams['name']);
 checkCbTransID($transactionId);
 
 // 8. Process Payment
+// ✅ Matches statuses used in your PaymentDEX worker logic
 if ($status === 'paid' || $status === 'confirmed') {
     addInvoicePayment(
         $invoiceId,
         $transactionId,
         $amountPaid,
-        0,
+        0, // Fee - handled internally by PaymentDEX
         $gatewayModuleName
     );
 
-    logTransaction($gatewayParams['name'], $data, 'Successful');
+    logTransaction($gatewayParams['name'], $data, 'Successful Payment Received');
     echo 'OK';
 } else {
-    logTransaction($gatewayParams['name'], $data, 'Status: ' . $status);
-    echo 'Status not paid';
+    // Log partials, pendings, or expires without marking as paid yet
+    logTransaction($gatewayParams['name'], $data, 'Notification Received - Status: ' . $status);
+    echo 'Notification processed for status: ' . $status;
 }
