@@ -1,91 +1,76 @@
-# Arionpay Crypto Payment Gateway for WHMCS
+# ArionPay for WHMCS
 
-This WHMCS gateway module lets your clients pay WHMCS invoices using **Arionpay**. It creates an Arionpay invoice via API (HMAC signed), redirects the client to the Arionpay checkout page, and then receives a webhook callback to automatically mark the WHMCS invoice as **Paid**.
+Lets your clients pay WHMCS invoices with cryptocurrency through [ArionPay](https://arionpay.com). The money goes straight to your own wallets: ArionPay never holds it.
 
-## Requirements
-- WHMCS 7.x / 8.x (Gateway API v1.1)
-- PHP 7.4+ (recommended: 8.0+)
-- PHP cURL extension enabled (`php-curl`)
-- Arionpay Store API Key + Secret Key
+**Not yet tested on a real WHMCS install.** It was tested against a test copy of the WHMCS functions and a local ArionPay server. Please try **Test Mode** first (see below).
 
-## Installation (Upload Files)
-Upload these files into your WHMCS installation exactly as shown:
+## What you need
 
-- Gateway module:
-  - `modules/gateways/arionpay.php`
+- WHMCS 8.x, PHP 7.4 or newer, with the PHP cURL extension
+- An ArionPay account with one store, and a wallet connected to it for real payments (Test Mode works without a wallet)
+- Your WHMCS site on a public `https://` address on port 443 or 8443, so ArionPay can reach it
 
-- Callback / Webhook handler:
-  - `modules/gateways/callback/arionpay.php`
+## Install
 
-> Note: The module file name is `arionpay.php` (internal module name: `arionpay`). Keep it as-is unless you also rename and update references.
+1. Open the zip file.
+2. Copy its contents into your WHMCS main folder (the folder that has `configuration.php` in it). These files go in place:
+   - `modules/gateways/arionpay.php`
+   - `modules/gateways/callback/arionpay.php`
+   - `modules/gateways/arionpay/` (folder)
+3. In WHMCS go to **System Settings > Payment Gateways > All Payment Gateways** and activate **ArionPay Crypto**.
 
-## Activate & Configure in WHMCS
-1. Log in to **WHMCS Admin**
-2. Go to **System Settings → Payment Gateways**
-3. Find and activate **Arionpay Crypto**
-4. Configure the gateway fields:
-   - **Store API Key (pk_...)**: from your Arionpay Dashboard (Store settings)
-   - **Store Secret Key (sk_...)**: from your Arionpay Dashboard (Store settings)
-   - **API Base URL**:  
-     `https://api.arionpay.com`  
-     (no trailing slash)
+## Settings: where each one comes from
 
-Save changes.
+| WHMCS setting | Where to get it |
+| --- | --- |
+| **Public Key** | In your ArionPay dashboard, open your store and copy the **API key**. It starts with `pk_`. |
+| **Secret Key** | In your ArionPay dashboard, open your store and copy the **API secret**. It starts with `sk_`. ArionPay asks for your authenticator code first. |
+| **Webhook Secret** | On the **Webhooks** page in your ArionPay dashboard, copy the **signing secret**. It starts with `whsec_`. |
+| **API Base URL** | Leave it as `https://merchant.arionpay.com` unless ArionPay tells you to change it. |
+| **Test Mode** | Tick it to try the module without real money. **Untick it before you take real payments.** |
 
-## Webhook / Callback Setup (Important)
-This module listens for payment webhooks at:
+## Callback URL to paste into ArionPay
 
-`https://YOUR-WHMCS-DOMAIN.com/modules/gateways/callback/arionpay.php`
+On the **Webhooks** page in your ArionPay dashboard, set the webhook URL to:
 
-In your **Arionpay Dashboard → Store/Webhook settings**, set the webhook/callback URL to the address above.
+```
+https://YOUR-WHMCS-ADDRESS/modules/gateways/callback/arionpay.php
+```
 
-### Webhook Headers (Required)
-Arionpay must send these headers with each webhook request:
-- `x-api-key: <your pk_...>`
-- `x-signature: <hmac_sha256(raw_json_body, sk_...)>`
+Use your real WHMCS address, including any folder WHMCS is installed in. ArionPay will ask for your authenticator code.
 
-Where:
-- Signature algorithm: `HMAC-SHA256`
-- Message: the **raw request body** bytes (exact JSON payload as sent)
-- Key: your **Store Secret Key** (`sk_...`)
+Also check, in your ArionPay store settings, that **Old ArionPay (v1) integration compatibility** is off. This module needs the current webhook format.
 
-## How Payment Flow Works
-1. Client opens a WHMCS invoice and clicks **Pay Now**
-2. WHMCS calls Arionpay API to create an invoice:  
-   `POST https://api.arionpay.com/api/v1/invoices`
-3. Client is redirected to Arionpay checkout:  
-   `https://arionpay.com/pay/{arionpay_invoice_id}`
-4. After payment, Arionpay sends a webhook to the WHMCS callback URL
-5. WHMCS validates signature and marks the invoice as **Paid**
+## Try it first
 
-## Testing Checklist
-- Create a test invoice in WHMCS
-- Select **Arionpay Crypto** as the payment method
-- Click **Pay Now** and confirm it redirects to Arionpay checkout
-- Complete payment in Arionpay
-- Confirm the WHMCS invoice becomes **Paid**
-- Check WHMCS logs:
-  - **Billing → Gateway Log / Transaction Log** (depends on WHMCS version)
+1. Tick **Test Mode** and save.
+2. Open an unpaid invoice in the client area, choose ArionPay and press the pay button.
+3. On the ArionPay page, choose a coin and use the test payment buttons. No real money moves.
+4. The invoice should now be **Paid**. Look under **Billing > Gateway Log** to see what happened.
+5. You can also press **Send test webhook** on the ArionPay Webhooks page. It should show as delivered and it does not change any invoice.
 
-## Troubleshooting
-**Invoice page shows “Payment Gateway Error”**
-- Check the error details shown (HTTP code / cURL error / API response)
-- Verify:
-  - API Base URL is exactly `https://api.arionpay.com`
-  - API Key/Secret are correct
-  - Server can reach the API (firewall/DNS)
-  - Endpoint path exists: `/api/v1/invoices`
+## How payment works
 
-**Webhook not updating WHMCS invoice**
-- Verify the callback URL is publicly reachable
-- Confirm Arionpay sends `x-api-key` + `x-signature`
-- Confirm WHMCS secret matches Arionpay Store Secret
-- Look for callback logs in WHMCS gateway log (you may see “Missing Signature” / “Invalid Signature”)
+- The customer presses the pay button on the invoice. The module creates an ArionPay invoice, or reuses the one that is still open, and sends the customer to the ArionPay payment page.
+- When ArionPay confirms the payment, it tells WHMCS through the callback URL, and the payment is added to the invoice.
+- Only the exact amount is confirmed automatically. If a customer sends a different amount, the invoice stays unpaid. ArionPay's Payment Radar shows that payment in your dashboard and you decide whether to accept it. If you accept it, the invoice is paid here too.
+- Coming back from the payment page does not mark an invoice paid.
+- The module adds a payment only when the ArionPay invoice amount and currency exactly match the WHMCS invoice balance and currency. If they do not match, it writes that in the Gateway Log and does not pay the invoice. You can then add the payment by hand.
+- A late payment or a payment accepted by hand in ArionPay is noted in the Gateway Log.
 
-## Security Notes
-- Keep `sk_...` secret key private.
-- Use HTTPS for WHMCS and Arionpay.
-- Restrict access to WHMCS admin and keep WHMCS updated.
+## Good to know
 
-## License
-MIT (or choose your preferred license)
+- Leave **Convert To For Processing** off for this gateway. The module always charges in the WHMCS invoice's own currency.
+- Your WHMCS invoice currency must be one ArionPay accepts: USD, EUR, GBP, CAD, AUD, CHF, JPY, TRY, AED, INR, BRL, RUB, CNY, SGD, HKD, KRW, MXN, PLN, SEK, NOK or ZAR.
+- Refunds are made from your own wallet. The module does not send refunds.
+- The module sends ArionPay the invoice number, amount, currency and the link back to the invoice. It does not send your client's name or email.
+- The module keeps one small table, `mod_arionpay_invoices`, to remember which ArionPay invoice belongs to which WHMCS invoice.
+- Keys and secrets are never written to the Gateway Log.
+
+## Upgrading from the old ArionPay module
+
+Replace the old files with these ones. The file names are the same, so WHMCS treats it as the same gateway and your saved Public Key, Secret Key and API Base URL are kept. You still need to add the **Webhook Secret** and turn off the old v1 compatibility in ArionPay, as described above. Invoices that were created with the old module are not paid through this new one.
+
+## Removing the module
+
+Deactivate the gateway in WHMCS and delete the three items listed under Install. You can also drop the `mod_arionpay_invoices` table.
