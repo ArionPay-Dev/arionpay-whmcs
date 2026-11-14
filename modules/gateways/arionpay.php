@@ -57,7 +57,8 @@ function arionpay_config()
             'Type' => 'password',
             'Size' => '60',
             'Description' => 'The signing secret on the Webhooks page of the ArionPay dashboard. It starts with whsec_. '
-                . 'On the same page, set the webhook URL to: <code>' . htmlspecialchars(arionpay_lib_callback_url(), ENT_QUOTES, 'UTF-8') . '</code>',
+                . 'Nothing else to paste: every invoice tells ArionPay to send its updates to <code>' . htmlspecialchars(arionpay_lib_callback_url(), ENT_QUOTES, 'UTF-8') . '</code> '
+                . '(you can also paste that address on the ArionPay Webhooks page to use "Send test webhook" there).',
         ),
         'baseUrl' => array(
             'FriendlyName' => 'API Base URL',

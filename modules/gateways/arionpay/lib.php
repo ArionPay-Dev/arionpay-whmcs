@@ -14,7 +14,7 @@ if (!defined('WHMCS')) {
 use WHMCS\Database\Capsule;
 
 const ARIONPAY_WHMCS_MODULE = 'arionpay';
-const ARIONPAY_WHMCS_VERSION = '2.0.0';
+const ARIONPAY_WHMCS_VERSION = '2.1.0';
 const ARIONPAY_WHMCS_DEFAULT_API = 'https://merchant.arionpay.com';
 const ARIONPAY_WHMCS_TABLE = 'mod_arionpay_invoices';
 const ARIONPAY_WHMCS_SIGNATURE_TOLERANCE = 300;
@@ -77,6 +77,13 @@ function arionpay_lib_callback_url()
     }
     $base = $base !== '' ? rtrim($base, '/') : 'https://YOUR-WHMCS-ADDRESS';
     return $base . '/modules/gateways/callback/' . ARIONPAY_WHMCS_MODULE . '.php';
+}
+
+/** The callback address from WHMCS's own System URL (as passed to the module). */
+function arionpay_lib_callback_url_from(array $gatewayParams)
+{
+    $base = isset($gatewayParams['systemurl']) ? rtrim((string) $gatewayParams['systemurl'], '/') : '';
+    return $base !== '' ? $base . '/modules/gateways/callback/' . ARIONPAY_WHMCS_MODULE . '.php' : arionpay_lib_callback_url();
 }
 
 // ---------------------------------------------------------------- signatures
@@ -582,6 +589,8 @@ function arionpay_lib_create_invoice(array $gatewayParams, array $whmcs, $return
             'description' => 'WHMCS invoice ' . $invoiceId,
             'successUrl' => $returnUrl,
             'cancelUrl' => $returnUrl,
+            // Each invoice tells ArionPay where to send its updates, so nothing has to be pasted into ArionPay.
+            'callbackUrl' => arionpay_lib_callback_url_from($gatewayParams),
             'idempotencyKey' => $key,
             'metadata' => array(
                 'whmcs_invoice_id' => $invoiceId,

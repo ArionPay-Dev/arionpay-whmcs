@@ -2,7 +2,7 @@
 
 Lets your clients pay WHMCS invoices with cryptocurrency through [ArionPay](https://arionpay.com). The money goes straight to your own wallets: ArionPay never holds it.
 
-**Not yet tested on a real WHMCS install.** It was tested against a test copy of the WHMCS functions and a local ArionPay server. Please try **Test Mode** first (see below).
+Version 2.1.0. **Not yet tested on a real WHMCS install.** It passes 29 checks against a stand-in of the WHMCS functions a gateway uses and a real ArionPay server. Please try **Test Mode** first (see below and `TESTING.md`).
 
 ## What you need
 
@@ -29,15 +29,15 @@ Lets your clients pay WHMCS invoices with cryptocurrency through [ArionPay](http
 | **API Base URL** | Leave it as `https://merchant.arionpay.com` unless ArionPay tells you to change it. |
 | **Test Mode** | Tick it to try the module without real money. **Untick it before you take real payments.** |
 
-## Callback URL to paste into ArionPay
+## Payment updates
 
-On the **Webhooks** page in your ArionPay dashboard, set the webhook URL to:
+Nothing to paste: every invoice tells ArionPay to send its payment updates to
 
 ```
 https://YOUR-WHMCS-ADDRESS/modules/gateways/callback/arionpay.php
 ```
 
-Use your real WHMCS address, including any folder WHMCS is installed in. ArionPay will ask for your authenticator code.
+(built from the **System URL** in WHMCS General Settings, so that must be your real public https address). If you also want to use **Send test webhook** in the ArionPay dashboard, paste the same address on its **Webhooks** page.
 
 Also check, in your ArionPay store settings, that **Old ArionPay (v1) integration compatibility** is off. This module needs the current webhook format.
 
@@ -53,7 +53,7 @@ Also check, in your ArionPay store settings, that **Old ArionPay (v1) integratio
 
 - The customer presses the pay button on the invoice. The module creates an ArionPay invoice, or reuses the one that is still open, and sends the customer to the ArionPay payment page.
 - When ArionPay confirms the payment, it tells WHMCS through the callback URL, and the payment is added to the invoice.
-- Only the exact amount is confirmed automatically. If a customer sends a different amount, the invoice stays unpaid. ArionPay's Payment Radar shows that payment in your dashboard and you decide whether to accept it. If you accept it, the invoice is paid here too.
+- The exact amount is confirmed automatically, and so is a small difference inside your store's payment tolerance (default 1%). If a customer sends a different amount, the invoice stays unpaid: ArionPay's Payment Radar shows that payment in your dashboard and you decide whether to accept it. If you accept it, the invoice is paid here too.
 - Coming back from the payment page does not mark an invoice paid.
 - The module adds a payment only when the ArionPay invoice amount and currency exactly match the WHMCS invoice balance and currency. If they do not match, it writes that in the Gateway Log and does not pay the invoice. You can then add the payment by hand.
 - A late payment or a payment accepted by hand in ArionPay is noted in the Gateway Log.
